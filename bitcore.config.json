@@ -19,5 +19,10 @@
           }
         }
       }
+    },
+    "servicesConfig": {
+      "insight-api": {
+        "disableRateLimiter": true
+      }
     }
   }
