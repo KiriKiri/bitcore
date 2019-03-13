@@ -10,7 +10,7 @@
       "sourceMaps": true,
       "outFiles": ["${workspaceFolder}/build/**/*.js"],
       "console": "integratedTerminal",
-      "preLaunchTask": "npm: tsc"
+      "preLaunchTask": "npm: compile"
     },
     {
       "type": "node",
@@ -26,7 +26,7 @@
       "name": "Debug Unit Tests",
       "program": "${workspaceRoot}/build/test/runners/unit.js",
       "protocol": "auto",
-      "preLaunchTask": "npm: tsc:test"
+      "preLaunchTask": "npm: tsc"
     },
     {
       "type": "node",
@@ -34,7 +34,7 @@
       "name": "Debug Integration Tests",
       "program": "${workspaceRoot}/build/test/runners/integration.js",
       "protocol": "auto",
-      "preLaunchTask": "npm: tsc:test"
+      "preLaunchTask": "npm: tsc"
     }
   ]
 }

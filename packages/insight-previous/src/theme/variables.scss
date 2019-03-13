@@ -50,10 +50,6 @@ $colors: (
 
 @import 'ionic.theme.default';
 
-$chip-ios-background-color: rgba(0, 0, 0, 0.06);
-$chip-md-background-color: rgba(0, 0, 0, 0.06);
-$chip-wp-background-color: rgba(0, 0, 0, 0.06);
-
 // Ionicons
 // --------------------------------------------------
 // The premium icon font for Ionic. For more info, please see:
@@ -64,13 +60,6 @@ $chip-wp-background-color: rgba(0, 0, 0, 0.06);
 // Fonts
 // --------------------------------------------------
 
-@import 'roboto';
-@import 'noto-sans';
-
-// Other globals
-
-$desktop-min-width: 1288px;
-
 @font-face {
   font-family: Ubuntu;
   src: url('../assets/fonts/ubuntu.woff2') format('woff2');
@@ -79,3 +68,16 @@ $desktop-min-width: 1288px;
   font-family: Ubuntu;
   font-size: 14px;
 }
+
+// Other globals
+
+$grid-breakpoints: (
+ xs: 0, // Phone (0px - 575px)
+ sm: 576px, // Phablet (576px - 767px)
+ md: 768px, // Tablet vertical (768px - 991px)
+ lg: 992px // Tablet horizontal, Desktop (992px and above)
+);
+
+$grid-max-widths: (
+ lg: 992px
+);

@@ -1,22 +1,20 @@
-<!-- Generated template for the LatestBlocksComponent component -->
-<div>
-  <div *ngIf="loading">
-    <ion-spinner name="crescent"></ion-spinner>
-  </div>
+<error [message]="errorMessage" *ngIf="errorMessage"></error>
+<div *ngIf="!errorMessage">
+  <ion-grid class="grid--table">
 
-  <div *ngIf="!loading">
-    <ion-grid class="grid--table">
+    <ion-row>
+      <ion-col><b>Height</b></ion-col>
+      <ion-col *ngIf="showTimeAs === 'age'"><b>Age</b></ion-col>
+      <ion-col *ngIf="showTimeAs === 'timestamp'"><b>Timestamp</b></ion-col>
+      <ion-col text-right><b>Transactions</b></ion-col>
+      <ion-col hideWhen="portrait"><b>Mined By</b></ion-col>
+      <ion-col text-right><b>Size</b></ion-col>
+    </ion-row>
 
-      <ion-row>
-        <ion-col><b>Height</b></ion-col>
-        <ion-col *ngIf="showTimeAs === 'age'"><b>Age</b></ion-col>
-        <ion-col *ngIf="showTimeAs === 'timestamp'"><b>Timestamp</b></ion-col>
-        <ion-col text-right><b>Transactions</b></ion-col>
-        <ion-col hideWhen="portrait"><b>Mined By</b></ion-col>
-        <ion-col text-right><b>Size</b></ion-col>
-      </ion-row>
+    <loader *ngIf="loading" [type]="'grid'"></loader>
 
-      <ion-row *ngFor="let block of getBlocks()">
+    <div *ngIf="!loading">
+      <ion-row *ngFor="let block of blocks">
         <ion-col>
           <a (click)="goToBlock(block.hash)">{{ block.height }}</a>
         </ion-col>
@@ -30,7 +28,9 @@
           {{ block.txlength }}
         </ion-col>
         <ion-col hideWhen="portrait">
-          <a *ngIf="block.poolInfo && block.poolInfo.poolName" href="{{block.poolInfo.url}}">{{ block.poolInfo.poolName }}</a>
+          <a *ngIf="block.poolInfo && block.poolInfo.poolName" href="{{ block.poolInfo.url }}">
+            {{ block.poolInfo.poolName }}
+          </a>
         </ion-col>
         <ion-col text-right>
           {{ block.size }}
@@ -39,15 +39,15 @@
 
       <ion-row *ngIf="showAllBlocksButton">
         <ion-col text-center>
-          <button ion-button (click)="goToBlocks()">See all blocks</button>
+          <button ion-button small (click)="goToBlocks()" [disabled]="blocks.length == 0">See all blocks</button>
         </ion-col>
       </ion-row>
 
       <ion-row *ngIf="showLoadMoreButton">
-        <ion-col text-center>
-          <button ion-button (click)="loadMoreBlocks()">Load more blocks</button>
-        </ion-col>
+        <ion-infinite-scroll (ionInfinite)="loadMoreBlocks($event)">
+          <loader [type]="'grid'"></loader>
+        </ion-infinite-scroll>
       </ion-row>
-    </ion-grid>
-  </div>
+    </div>
+  </ion-grid>
 </div>

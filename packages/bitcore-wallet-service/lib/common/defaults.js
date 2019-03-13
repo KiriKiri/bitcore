@@ -29,23 +29,23 @@ Defaults.FEE_LEVELS = {
     name: 'urgent',
     nbBlocks: 2,
     multiplier: 1.5,
-    defaultValue: 150000,
+    defaultValue: 75000,
   }, {
     name: 'priority',
     nbBlocks: 2,
-    defaultValue: 100000
+    defaultValue: 50000
   }, {
     name: 'normal',
     nbBlocks: 3,
-    defaultValue: 80000
+    defaultValue: 30000
   }, {
     name: 'economy',
     nbBlocks: 6,
-    defaultValue: 50000
+    defaultValue: 25000
   }, {
     name: 'superEconomy',
     nbBlocks: 24,
-    defaultValue: 20000
+    defaultValue: 10000
   }],
   bch: [{
     name: 'normal',
@@ -98,7 +98,7 @@ Defaults.BALANCE_CACHE_DURATION = 10;
 Defaults.BLOCKHEIGHT_CACHE_TIME = 30 * 60 * 1000;
 
 // Cache time fee levels (in ms)
-Defaults.FEE_LEVEL_CACHE_DURATION = 30 * 60 * 1000;
+Defaults.FEE_LEVEL_CACHE_DURATION = 6 * 60 * 1000;
 
 // Max allowed timespan for notification queries in seconds
 Defaults.MAX_NOTIFICATIONS_TIMESPAN = 60 * 60 * 24 * 14; // ~ 2 weeks

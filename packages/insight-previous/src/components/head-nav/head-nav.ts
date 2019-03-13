@@ -1,10 +1,4 @@
-import {
-  Component,
-  EventEmitter,
-  Injectable,
-  Input,
-  Output
-} from '@angular/core';
+import { Component, Input, OnInit, ViewChild } from '@angular/core';
 import * as bitcoreLib from 'bitcore-lib';
 import * as bitcoreLibCash from 'bitcore-lib-cash';
 import {
@@ -12,6 +6,7 @@ import {
   App,
   NavController,
   PopoverController,
+  Searchbar,
   ToastController
 } from 'ionic-angular';
 import * as _ from 'lodash';
@@ -23,14 +18,12 @@ import { RedirProvider } from '../../providers/redir/redir';
 import { SearchProvider } from '../../providers/search/search';
 import { DenominationComponent } from '../denomination/denomination';
 
-@Injectable()
 @Component({
   selector: 'head-nav',
   templateUrl: 'head-nav.html'
 })
-export class HeadNavComponent {
-  @Output()
-  public updateView = new EventEmitter<ChainNetwork>();
+export class HeadNavComponent implements OnInit {
+  @ViewChild('searchbar') searchbar: Searchbar;
   public showSearch = false;
   public loading: boolean;
   @Input()
@@ -44,15 +37,17 @@ export class HeadNavComponent {
     private navCtrl: NavController,
     private apiProvider: ApiProvider,
     public app: App,
-    public currency: CurrencyProvider,
-    public price: PriceProvider,
+    public currencyProvider: CurrencyProvider,
+    public priceProvider: PriceProvider,
     public actionSheetCtrl: ActionSheetController,
     public popoverCtrl: PopoverController,
     public toastCtrl: ToastController,
     private logger: Logger,
     public searchProvider: SearchProvider,
     public redirProvider: RedirProvider
-  ) {
+  ) {}
+
+  public ngOnInit(): void {
     this.config = this.apiProvider.getConfig();
     this.params = {
       chain: this.apiProvider.networkSettings.value.selectedNetwork.chain,
@@ -61,53 +56,79 @@ export class HeadNavComponent {
   }
 
   public goHome(): void {
-    this.navCtrl.popToRoot();
+    this.navCtrl.setRoot('home', {
+      chain: this.config.chain,
+      network: this.config.network
+    });
   }
 
   public search(): void {
-    this.showSearch = false;
     this.q = this.q.replace(/\s/g, '');
     const inputDetails = this.searchProvider.isInputValid(this.q);
 
     if (this.q !== '' && inputDetails.isValid) {
+      this.showSearch = false;
       this.searchProvider.search(this.q, inputDetails.type).subscribe(
         res => {
-          if (_.isArray(res)) {
-            const index = _.findIndex(res, o => {
-              return o !== null;
-            });
-            if (index === 0) {
-              this.redirTo = 'block-detail';
-              this.params['blockHash'] = res[0].json().hash;
-            } else {
-              this.redirTo = 'transaction';
-              this.params['txId'] = res[1].json().txid;
-            }
+          const nextView = this.processResponse(res);
+          if (!_.includes(nextView, '')) {
+            this.params[nextView.type] = nextView.params;
+            this.redirTo = nextView.redirTo;
+            this.navCtrl.setRoot('home', this.params, { animate: false });
+            this.redirProvider.redir(this.redirTo, this.params);
           } else {
-            this.redirTo = 'address';
-            this.params['addrStr'] = res.json()[0].address;
+            const message = 'No matching records found!';
+            this.wrongSearch(message);
+            this.logger.info(message);
           }
-          this.navCtrl.setRoot('home', this.params, { animate: false });
-          this.redirProvider.redir(this.redirTo, this.params);
         },
         err => {
-          this.resetSearch();
-          this.loading = false;
-          this.reportBadQuery('Server error. Please try again');
+          this.wrongSearch('Server error. Please try again');
           this.logger.error(err);
         }
       );
     } else {
-      this.resetSearch();
-      this.loading = false;
-      this.reportBadQuery('No matching records found!');
+      this.wrongSearch('No matching records found!');
     }
   }
 
-  /* tslint:disable:no-unused-variable */
-  private reportBadQuery(message): void {
+  private processResponse(response) {
+    if (response.addr) {
+      return {
+        redirTo: 'address',
+        params: response.addr[0] ? response.addr[0].address : [],
+        type: 'addrStr'
+      };
+    } else {
+      return _.reduce(
+        response,
+        (result, value) => {
+          if (value.tx) {
+            result = {
+              redirTo: 'transaction',
+              params: value.tx.txid,
+              type: 'txId'
+            };
+          } else if (value.block) {
+            result = {
+              redirTo: 'block-detail',
+              params: value.block.hash,
+              type: 'blockHash'
+            };
+          }
+          return result;
+        },
+        { redirTo: '', params: '', type: '' }
+      );
+    }
+  }
+
+  private wrongSearch(message: string): void {
+    this.loading = false;
     this.presentToast(message);
-    this.logger.info(message);
+    setTimeout(() => {
+      this.searchbar.setFocus();
+    }, 150);
   }
 
   private presentToast(message): void {
@@ -119,35 +140,31 @@ export class HeadNavComponent {
     toast.present();
   }
 
-  private resetSearch(): void {
-    this.q = '';
-    this.loading = false;
-  }
-  /* tslint:enable:no-unused-variable */
-
   public changeCurrency(myEvent: any): void {
-    const popover: any = this.popoverCtrl.create(DenominationComponent);
+    const popover: any = this.popoverCtrl.create(DenominationComponent, {
+      config: this.config,
+      currencySymbol: this.currencyProvider.getCurrency()
+    });
     popover.present({
       ev: myEvent
     });
     popover.onDidDismiss(data => {
-      if (data) {
-        if (JSON.stringify(data) === JSON.stringify(this.config)) {
-          return;
-        }
-        this.apiProvider.changeNetwork(data);
+      if (!data) {
+        return;
+      } else if (data.chainNetwork !== this.config) {
+        this.apiProvider.changeNetwork(data.chainNetwork);
         this.config = this.apiProvider.getConfig();
-        if (this.navCtrl.getActive().component.name === 'HomePage') {
-          this.updateView.next(data);
-        } else {
-          this.navCtrl.popToRoot();
-        }
-        this.navCtrl.setRoot('home', {
-          chain: this.config.chain,
-          network: this.config.network
-        });
+        this.setCurrency(data.currencySymbol);
+        this.goHome();
+      } else if (data.currencySymbol !== this.currencyProvider.getCurrency()) {
+        this.setCurrency(data.currencySymbol);
       }
     });
+  }
+
+  private setCurrency(currencySymbol) {
+    this.currencyProvider.setCurrency(currencySymbol);
+    this.priceProvider.setCurrency(currencySymbol);
   }
 
   public toggleSearch(): void {

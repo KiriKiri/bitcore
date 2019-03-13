@@ -25,6 +25,7 @@ export class LatestBlocksComponent implements OnInit, OnDestroy {
   private reloadInterval: any;
 
   public subscriber: Subscription;
+  public errorMessage: string;
 
   constructor(
     private blocksProvider: BlocksProvider,
@@ -57,23 +58,28 @@ export class LatestBlocksComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       err => {
-        this.logger.error(err);
+        this.subscriber.unsubscribe();
+        clearInterval(this.reloadInterval);
+        this.logger.error(err._body);
+        this.errorMessage = err;
         this.loading = false;
       }
     );
   }
 
-  public loadMoreBlocks(): void {
+  public loadMoreBlocks(infiniteScroll) {
     clearInterval(this.reloadInterval);
     const since: number =
       this.blocks.length > 0 ? this.blocks[this.blocks.length - 1].height : 0;
-    this.blocksProvider.pageBlocks(since, this.numBlocks).subscribe(
+    return this.blocksProvider.pageBlocks(since, this.numBlocks).subscribe(
       ({ blocks }) => {
         this.blocks = this.blocks.concat(blocks);
         this.loading = false;
+        infiniteScroll.complete();
       },
       err => {
         this.logger.error(err);
+        this.errorMessage = err;
         this.loading = false;
       }
     );

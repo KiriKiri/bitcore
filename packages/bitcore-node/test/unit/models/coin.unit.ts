@@ -2,6 +2,9 @@ import { expect } from 'chai';
 import { CoinStorage, ICoin } from '../../../src/models/coin';
 import { SpentHeightIndicators } from '../../../src/types/Coin';
 import { ObjectId } from 'mongodb';
+import sinon from 'sinon';
+import { BlockStorage } from '../../../src/models/block';
+import { mockStorage, mockModel } from '../../helpers/index.js';
 
 describe('Coin Model', function() {
   describe('_apiTransform', () => {
@@ -76,6 +79,87 @@ describe('Coin Model', function() {
         script: '',
         value: 5000000000.0
       });
+    });
+  });
+
+  describe('getBalanceAtTime', () => {
+    let sandbox: sinon.SinonSandbox;
+    beforeEach(() => {
+      sandbox = sinon.sandbox.create();
+    });
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should return an object with confirmed, unconfirmed, and balance when additional time parameter is passed in', async () => {
+      let id = new ObjectId('5c364e342ab5602e97a56f0e');
+      let chain = 'BTC';
+      let network = 'regtest';
+      let time = new Date().toISOString();
+      let query = { wallets: id, 'wallets.0': { $exists: true } };
+      let matchObject = {
+        $or: [
+          {
+            spentHeight: {
+              $gt: 123
+            }
+          },
+          {
+            spentHeight: -2
+          }
+        ],
+        mintHeight: {
+          $lte: 123
+        },
+        wallets: new ObjectId('5c364e342ab5602e97a56f0e'),
+        'wallets.0': { $exists: true }
+      };
+
+      let blockModelHeight = { height: 123 };
+      mockModel('coins', [{ _id: 'confirmed', balance: 123123 }, { _id: 'unconfirmed', balance: 1 }]);
+      mockModel('blocks', blockModelHeight);
+      let coinModelAggregateSpy = CoinStorage.collection.aggregate as sinon.SinonSpy;
+      let blockModelFindSpy = BlockStorage.collection.find as sinon.SinonSpy;
+
+      const result = await CoinStorage.getBalanceAtTime({ query, time, chain, network });
+      expect(coinModelAggregateSpy.called).to.deep.equal(true, 'CoinStorage.aggregation should have been called');
+      expect(blockModelFindSpy.called).to.deep.equal(true, 'BlockModel.find should have been called');
+      expect(coinModelAggregateSpy.getCall(0).args[0][0].$match).to.deep.equal(matchObject);
+      expect(result).to.has.property('confirmed');
+      expect(result).to.has.property('unconfirmed');
+      expect(result).to.has.property('balance');
+      expect(result).to.deep.equal({ confirmed: 123123, unconfirmed: 1, balance: 123124 });
+    });
+  });
+
+  describe('getBalance', () => {
+    let sandbox: sinon.SinonSandbox;
+    beforeEach(() => {
+      sandbox = sinon.sandbox.create();
+    });
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should return an object with confirmed, unconfirmed, and balance', async () => {
+      let id = new ObjectId('5c364e342ab5602e97a56f0e');
+      let query = {
+        wallets: id,
+        'wallets.0': { $exists: true },
+        spentHeight: { $lt: 0 },
+        mintHeight: { $gt: -3 }
+      };
+
+      mockStorage([{ _id: 'confirmed', balance: 123123 }, { _id: 'unconfirmed', balance: 1 }]);
+      let coinModelAggregateSpy = CoinStorage.collection.aggregate as sinon.SinonSpy;
+
+      const result = await CoinStorage.getBalance({ query });
+      expect(coinModelAggregateSpy.called).to.deep.equal(true, 'CoinStorage.aggregation should have been called');
+      expect(coinModelAggregateSpy.getCall(0).args[0][0].$match).to.deep.equal(query);
+      expect(result).to.has.property('confirmed');
+      expect(result).to.has.property('unconfirmed');
+      expect(result).to.has.property('balance');
+      expect(result).to.deep.equal({ confirmed: 123123, unconfirmed: 1, balance: 123124 });
     });
   });
 });

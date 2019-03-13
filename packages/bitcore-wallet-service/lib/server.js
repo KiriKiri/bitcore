@@ -1635,7 +1635,7 @@ WalletService.prototype._sampleFeeLevels = function(coin, network, points, cb) {
 
     var failed = [];
     var levels = _.fromPairs(_.map(points, function(p) {
-      var feePerKb = _.isObject(result) ? +result[p] : -1;
+      var feePerKb = (_.isObject(result) && result[p] && _.isNumber(result[p]) ) ? +result[p] : -1;
       if (feePerKb < 0)
         failed.push(p);
 
@@ -1647,7 +1647,7 @@ WalletService.prototype._sampleFeeLevels = function(coin, network, points, cb) {
       logger('Could not compute fee estimation in ' + network + ': ' + failed.join(', ') + ' blocks.');
     }
 
-    return cb(null, levels);
+    return cb(null, levels, failed.length);
   });
 };
 
@@ -1674,7 +1674,7 @@ WalletService.prototype.getFeeLevels = function(opts, cb) {
   let cacheKey = 'feeLevel:' + opts.coin + ':' + opts.network;
 
   self.storage.checkAndUseGlobalCache(
-    cacheKey, Defaults.FEE_LEVEL_CACHE_DURATION, (err, values) =>  {
+    cacheKey, Defaults.FEE_LEVEL_CACHE_DURATION, (err, values, oldvalues) =>  {
 
     if (err) return cb(err);
     if (values) return cb(null, values, true);
@@ -1708,7 +1708,13 @@ WalletService.prototype.getFeeLevels = function(opts, cb) {
       return result;
     };
 
-    self._sampleFeeLevels(opts.coin, opts.network, samplePoints(), function(err, feeSamples) {
+    self._sampleFeeLevels(opts.coin, opts.network, samplePoints(), function(err, feeSamples, failed) {
+      if (err) {
+        if (oldvalues) {
+          log.warn("##  There was an error estimating fees... using old cached values");
+          return cb(null, oldvalues, true);
+        }
+      }
 
       var values = _.map(feeLevels, function(level) {
         var result = {
@@ -1729,6 +1735,12 @@ WalletService.prototype.getFeeLevels = function(opts, cb) {
       for (var i = 1; i < values.length; i++) {
         values[i].feePerKb = Math.min(values[i].feePerKb, values[i - 1].feePerKb);
       }
+
+      if (failed > 0) {
+        log.warn('Not caching default values. Failed:' + failed);
+        return cb(null, values);
+      }
+
 
       self.storage.storeGlobalCache(cacheKey, values, (err) =>  {
         if (err) {
@@ -2920,7 +2932,6 @@ WalletService.prototype.getPendingTxs = function(opts, cb) {
       })
 
       if (opts.noCashAddr && txps[0] && txps[0].coin == 'bch') {
-console.log('## [server.js.2989]'); //TODO
         _.each(txps, (x) => {
           if (x.changeAddress) {
             x.changeAddress.address= BCHAddressTranslator.translate(x.changeAddress.address,'copay');
@@ -2987,7 +2998,7 @@ WalletService.prototype.getNotifications = function(opts, cb) {
 };
 
 
-WalletService.prototype._normalizeV8TxHistory = function(walletId, txs, bcHeight, cb) {
+WalletService.prototype._normalizeTxHistory = function(walletId, txs, bcHeight, cb) {
   var self = this;
 
   if (_.isEmpty(txs) )
@@ -3009,7 +3020,13 @@ WalletService.prototype._normalizeV8TxHistory = function(walletId, txs, bcHeight
   var moves = {};
 
   // remove 'fees' and 'moves' (probably change addresses)
+  // also remove conflincting TXs (height=-3)
   var txs =  _.filter(txs, (tx) => {
+
+    // double spend or error
+//    if (tx.height && tx.height <= -3) 
+//      return false;
+
     if (tx.category == 'receive') {
       var output = {
           address: tx.address,
@@ -3114,7 +3131,7 @@ WalletService.prototype._normalizeV8TxHistory = function(walletId, txs, bcHeight
         case 'move':
           ret.action = 'moved';
           ret.amount =  Math.abs(tx.satoshis);
-          ret.addressTo= tx.outputs ? tx.outputs[0].address : null;
+          ret.addressTo= tx.outputs && tx.outputs.length ? tx.outputs[0].address : null;
           ret.outputs= tx.outputs;
           break;
         default:
@@ -3540,7 +3557,7 @@ WalletService.prototype.getTxHistoryV8 = function(bc, wallet, opts, skip, limit,
       bc.getTransactions(wallet, startBlock, (err, txs) => {
         if (err) return cb(err);
 
-        self._normalizeV8TxHistory(wallet.id, txs, bcHeight, function(err, inTxs) {
+        self._normalizeTxHistory(wallet.id, txs, bcHeight, function(err, inTxs) {
           if (err) return cb(err);
 
           if (cacheStatus.tipTxId) {
@@ -3605,6 +3622,13 @@ WalletService.prototype.getTxHistoryV8 = function(bc, wallet, opts, skip, limit,
         if (oldTxs.length) {
           fromCache = true;
         }
+
+        // update confirmations from height
+        _.each(oldTxs, (x) => {
+          if (x.blockheight>0) {
+            x.confirmations = bcHeight - x.blockheight + 1;
+          } 
+        });
       
         resultTxs  = resultTxs.concat(oldTxs);
         return next();
@@ -3616,12 +3640,13 @@ WalletService.prototype.getTxHistoryV8 = function(bc, wallet, opts, skip, limit,
       }
       // We have now TXs from 'tipHeight` to end in `lastTxs`.
       // Store hard confirmed TXs
+      // confirmations here is bcHeight - tip + 1, so OK.
       txsToCache = _.filter(lastTxs, function(i) {
         if (i.confirmations < Defaults.CONFIRMATIONS_TO_START_CACHING)  {
           return false;
         };
         if (!cacheStatus.tipHeight)
-        return true;  
+          return true;  
 
         return i.blockheight > cacheStatus.tipHeight;
       });

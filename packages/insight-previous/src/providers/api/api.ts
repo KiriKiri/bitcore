@@ -17,13 +17,22 @@ export interface NetworkSettings {
 
 @Injectable()
 export class ApiProvider {
+  public defaultNetwork = {
+    chain: this.defaults.getDefault('%CHAIN%'),
+    network: this.defaults.getDefault('%NETWORK%')
+  };
   public networkSettings = new BehaviorSubject<NetworkSettings>({
-    availableNetworks: [{ chain: 'BTC', network: 'mainnet' }],
-    selectedNetwork: { chain: 'BTC', network: 'mainnet' }
+    availableNetworks: [this.defaultNetwork],
+    selectedNetwork: this.defaultNetwork
   });
 
+  public ratesAPI = {
+    btc: 'https://bitpay.com/api/rates',
+    bch: 'https://bitpay.com/api/rates/bch'
+  };
+
   constructor(
-    public http: Http, 
+    public http: Http,
     private defaults: DefaultProvider,
     private logger: Logger
   ) {
@@ -64,7 +73,9 @@ export class ApiProvider {
     const availableNetworks = this.networkSettings.value.availableNetworks;
     const isValid = _.some(availableNetworks, network);
     if (!isValid) {
-      this.logger.error('Invalid URL: missing or invalid COIN or NETWORK param');
+      this.logger.error(
+        'Invalid URL: missing or invalid COIN or NETWORK param'
+      );
       return;
     }
     this.networkSettings.next({

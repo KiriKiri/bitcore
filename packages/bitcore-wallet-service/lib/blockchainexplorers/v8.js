@@ -184,7 +184,9 @@ V8.prototype._transformUtxos = function(unspent, bcheight) {
   $.checkState(bcheight>0, 'No BC height passed to _transformUtxos');
   var self = this;
 
-  let ret = _.map(unspent, function(x) {
+  let ret = _.map(_.reject(unspent, (x) => {
+    return x.spentHeight && x.spentHeight <= -3;
+  }), (x) => {
     var u = {address: x.address};
 
     // v8 field name differences
@@ -377,7 +379,6 @@ console.log('[v8.js.328:url:] CHECKING ADDRESS ACTIVITY',url); //TODO
       return cb(null, ret !== '[]');
     })
       .catch((err) => {
-console.log('[v8.js.335:err:]',err); //TODO
         return cb(err);
       } );
 };
@@ -391,10 +392,26 @@ V8.prototype.estimateFee = function(nbBlocks, cb) {
     var url = self.baseUrl + '/fee/' + x;
     self.request.get(url, {})
       .then( (ret) => {
-        result[x] = ret;
+        try {
+          ret = JSON.parse(ret);
+
+          // only process right responses.
+          if (!_.isUndefined(ret.blocks) && ret.blocks != x)  {
+            log.info(`Ignoring response for ${x}:`+ JSON.stringify(ret));
+            return icb();
+          }
+
+          result[x] = ret.feerate;
+        }
+        catch (e) { 
+          log.warn('fee error:', e);
+        };
+
         return icb();
       })
-      .catch((err) => {return icb(err)} );
+      .catch((err) => {
+        return icb(err)
+      } );
   }, function(err) {
     if (err) {
       return cb(err);

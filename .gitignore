@@ -3,3 +3,12 @@ node_modules/
 .env
 .vscode
 .DS_Store
+*.swp
+
+# VIM ignore
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~

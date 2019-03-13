@@ -2,7 +2,10 @@ import { Component, Injectable } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Http } from '@angular/http';
 import { IonicPage, NavParams, ToastController } from 'ionic-angular';
-import { ApiProvider } from '../../providers/api/api';
+import { ApiProvider, ChainNetwork } from '../../providers/api/api';
+import { CurrencyProvider } from '../../providers/currency/currency';
+import { Logger } from '../../providers/logger/logger';
+import { PriceProvider } from '../../providers/price/price';
 
 @Injectable()
 @IonicPage({
@@ -20,17 +23,31 @@ export class BroadcastTxPage {
   public txForm: FormGroup;
   private status: string;
   private toast: any;
+  private chainNetwork: ChainNetwork;
 
   constructor(
     private toastCtrl: ToastController,
     public formBuilder: FormBuilder,
     public navParams: NavParams,
     private http: Http,
-    private apiProvider: ApiProvider
+    private apiProvider: ApiProvider,
+    private logger: Logger,
+    private priceProvider: PriceProvider,
+    private currencyProvider: CurrencyProvider
   ) {
-    const chain: string = this.apiProvider.getConfig().chain;
-    const network: string = this.apiProvider.getConfig().network;
-    this.apiProvider.changeNetwork({ chain, network });
+    const chain: string =
+      navParams.get('chain') || this.apiProvider.getConfig().chain;
+    const network: string =
+      navParams.get('network') || this.apiProvider.getConfig().network;
+
+    this.chainNetwork = {
+      chain,
+      network
+    };
+
+    this.apiProvider.changeNetwork(this.chainNetwork);
+    this.currencyProvider.setCurrency();
+    this.priceProvider.setCurrency();
 
     this.title = 'Broadcast Transaction';
     this.txForm = formBuilder.group({
@@ -44,11 +61,12 @@ export class BroadcastTxPage {
     };
     this.status = 'loading';
 
-    this.http.post(this.apiProvider.getUrl() + 'tx/send', postData).subscribe(
+    this.http.post(this.apiProvider.getUrl() + '/tx/send', postData).subscribe(
       response => {
         this.presentToast(true, response);
       },
       err => {
+        this.logger.error(err._body);
         this.presentToast(false, err);
       }
     );
@@ -65,7 +83,7 @@ export class BroadcastTxPage {
 
     this.toast = this.toastCtrl.create({
       message,
-      position: 'middle',
+      position: 'bottom',
       showCloseButton: true,
       dismissOnPageChange: true
     });

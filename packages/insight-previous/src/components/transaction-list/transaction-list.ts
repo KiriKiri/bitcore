@@ -2,6 +2,8 @@ import { Component, Input, OnInit } from '@angular/core';
 import { Logger } from '../../providers/logger/logger';
 import { TxsProvider } from '../../providers/transactions/transactions';
 
+import * as _ from 'lodash';
+
 @Component({
   selector: 'transaction-list',
   templateUrl: 'transaction-list.html'
@@ -24,7 +26,11 @@ export class TransactionListComponent implements OnInit {
     if (this.transactions && this.transactions.length === 0) {
       this.txProvider.getTxs({ [this.queryType]: this.queryValue }).subscribe(
         data => {
-          this.transactions = data.txs;
+          // Newly Generated Coins (Coinbase) First
+          const sortedTxs = _.sortBy(data.txs, (tx: any) => {
+            return tx.isCoinBase ? 0 : 1;
+          });
+          this.transactions = sortedTxs;
           this.loading = false;
         },
         err => {
@@ -37,8 +43,9 @@ export class TransactionListComponent implements OnInit {
     }
   }
 
-  public loadMore() {
+  public loadMore(infiniteScroll) {
     this.limit += this.chunkSize;
     this.chunkSize *= 2;
+    infiniteScroll.complete();
   }
 }
