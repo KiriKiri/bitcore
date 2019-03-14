@@ -1,11 +1,6 @@
 #!/bin/sh
 #set -ex
 
-# docker hub username
-USERNAME=seductive
-# image name
-IMAGE=bitcore
-
 # ensure we're up to date
 git pull
 
@@ -16,7 +11,7 @@ echo "version: $version"
 
 # run build
 # ./push.sh
-docker build -t ${USERNAME}/${IMAGE}:latest .
+docker build -t seductive/bitcore:latest .
 
 # tag it
 git add -A
@@ -24,7 +19,7 @@ git commit -m "version $version"
 git tag -a "$version" -m "version $version"
 git push
 git push --tags
-docker tag $USERNAME/$IMAGE:latest $USERNAME/$IMAGE:$version
+docker tag seductive/bitcore:latest seductive/bitcore:$version
 # push it
-docker push $USERNAME/$IMAGE:latest
-docker push $USERNAME/$IMAGE:$version
+docker push seductive/bitcore:latest
+docker push seductive/bitcore:$version
