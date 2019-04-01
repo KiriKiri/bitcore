@@ -19,11 +19,13 @@ COPY ./packages/bitcore-wallet-service/package.json ./packages/bitcore-wallet-se
 COPY ./packages/bitcore-node/package.json ./packages/bitcore-node/package.json
 COPY ./packages/insight/package.json ./packages/insight/package.json
 
-RUN ./node_modules/.bin/lerna bootstrap
+# RUN apk update && apk upgrade && \
+#     apk add --no-cache bash git openssh python make
 
+WORKDIR /usr/src/app
 COPY . .
-EXPOSE 3000
-EXPOSE 8100
-CMD ["./node_modules/.bin/lerna", "run", "start"]
-#CMD ["npm", "--prefix=./packages/bitcore-node", "start"]
-#CMD ["npm", "--prefix=./packages/insight", "start"]
+RUN npm install
+RUN npm run bootstrap
+RUN npm run compile
+
+CMD ["npm", "run", "node"]
