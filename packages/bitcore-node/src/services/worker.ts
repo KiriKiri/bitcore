@@ -22,10 +22,12 @@ export class WorkerService extends EventEmitter {
       logger.verbose(`Master ${process.pid} is running`);
       cluster.on('exit', (worker: WorkerType) => {
         logger.error(`worker ${worker.process.pid} died`);
+        process.exit();
       });
       if (!args.DEBUG) {
         for (let worker = 0; worker < config.numWorkers; worker++) {
           let newWorker = cluster.fork();
+          logger.verbose(`Starting worker number ${worker}`);
           newWorker.on('message', (msg: any) => {
             this.emit(msg.id, msg);
           });

@@ -67,12 +67,13 @@
 
           <div class="ellipsis">
             <p>
-              <a (click)="goToAddress(vin.address)">{{ vin.address }}</a>
+              <a (click)="goToAddress(vin.address)"
+                [ngClass]="{'disabled-link': getAddress(vin) === 'Unparsed address' }">{{ getAddress(vin) }}</a>
             </p>
           </div>
           <div [hidden]="!expanded">
-            <p *ngIf="vin.confirmations">
-              <b>Confirmations</b> {{ vin.confirmations }}</p>
+            <p *ngIf="confirmations > 0">
+              <b>Confirmations</b> {{ confirmations }}</p>
             <p>
               <b>Unlocking Script</b>
             </p>
